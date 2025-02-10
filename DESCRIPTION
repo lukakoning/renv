@@ -16,7 +16,9 @@ Description: A dependency management toolkit for R. Using 'renv', you can create
 License: MIT + file LICENSE
 URL: https://rstudio.github.io/renv/, https://github.com/rstudio/renv
 BugReports: https://github.com/rstudio/renv/issues
-Imports: utils
+Imports: 
+    digest,
+    utils
 Suggests: BiocManager, cli, compiler, covr, cpp11, devtools, gitcreds, jsonlite,
     jsonvalidate, knitr, miniUI, modules, packrat, pak, R6, remotes, reticulate,
     rmarkdown, rstudioapi, shiny, testthat, uuid, waldo, yaml, webfakes

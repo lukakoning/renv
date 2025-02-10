@@ -1,4 +1,3 @@
-
 the$init_running <- FALSE
 
 #' Use renv in a project
@@ -66,17 +65,18 @@ the$init_running <- FALSE
 #' @export
 #'
 #' @example examples/examples-init.R
-init <- function(project = NULL,
-                 ...,
-                 profile      = NULL,
-                 settings     = NULL,
-                 bare         = FALSE,
-                 force        = FALSE,
-                 repos        = NULL,
-                 bioconductor = NULL,
-                 load         = TRUE,
-                 restart      = interactive())
-{
+init <- function(
+  project = NULL,
+  ...,
+  profile = NULL,
+  settings = NULL,
+  bare = TRUE,
+  force = FALSE,
+  repos = NULL,
+  bioconductor = NULL,
+  load = TRUE,
+  restart = interactive()
+) {
   renv_consent_check()
   renv_scope_error_handler()
   renv_dots_check(...)
@@ -87,15 +87,14 @@ init <- function(project = NULL,
   renv_project_lock(project = project)
 
   # initialize profile
-  if (!is.null(profile))
-    renv_profile_set(profile)
+  if (!is.null(profile)) renv_profile_set(profile)
 
   # normalize repos
   repos <- renv_repos_normalize(repos %||% renv_init_repos())
   renv_scope_options(repos = repos)
 
   # form path to lockfile, library
-  library  <- renv_paths_library(project = project)
+  library <- renv_paths_library(project = project)
   lockfile <- renv_lockfile_path(project)
 
   # ask user what type of project this is
@@ -105,7 +104,6 @@ init <- function(project = NULL,
   # initialize bioconductor pieces
   biocver <- renv_init_bioconductor(bioconductor, project)
   if (!is.null(biocver)) {
-
     # validate that this version of bioconductor is appropriate
     renv_bioconductor_validate(version = biocver)
 
@@ -115,11 +113,10 @@ init <- function(project = NULL,
     # retrieve bioconductor repositories appropriate for this project
     repos <- renv_bioconductor_repos(project = project, version = biocver)
     renv_scope_options(repos = repos)
-  
+
     # notify user
     writef("- Using Bioconductor version '%s'.", biocver)
     settings[["bioconductor.version"]] <- biocver
-
   }
 
   # prepare and move into project directory
@@ -146,68 +143,75 @@ init <- function(project = NULL,
   if (action == "init") {
     renv_scope_options(renv.config.dependency.errors = "ignored")
     renv_imbue_impl(project, library = library)
-    hydrate(library = library, repos = repos, prompt = FALSE, report = FALSE, project = project)
-    snapshot(library = libpaths, repos = repos, prompt = FALSE, project = project, force = TRUE)
+    hydrate(
+      library = library,
+      repos = repos,
+      prompt = FALSE,
+      report = FALSE,
+      project = project
+    )
+    snapshot(
+      library = libpaths,
+      repos = repos,
+      prompt = FALSE,
+      project = project,
+      force = TRUE
+    )
   } else if (action == "restore") {
     ensure_directory(library)
     renv_sandbox_activate(project = project)
-    restore(project = project, library = libpaths, repos = repos, prompt = FALSE)
+    restore(
+      project = project,
+      library = libpaths,
+      repos = repos,
+      prompt = FALSE
+    )
   }
 
   # activate the newly-hydrated project
   renv_init_fini(project, profile, load, restart)
-
 }
 
 renv_init_fini <- function(project, profile, load, restart) {
-
   renv_activate_impl(
     project = project,
     profile = profile,
     version = renv_metadata_version(),
-    load    = load,
+    load = load,
     restart = restart
   )
 
   invisible(project)
-
 }
 
 renv_init_action <- function(project, library, lockfile, bioconductor) {
-
   # if the user has asked for bioconductor, treat this as a re-initialization
-  if (!is.null(bioconductor))
-    return("init")
+  if (!is.null(bioconductor)) return("init")
 
   # figure out appropriate action
   case(
-
     # if both the library and lockfile exist, ask user for intended action
-    file.exists(lockfile)
-      ~ renv_init_action_conflict_lockfile(project, library, lockfile),
+    file.exists(lockfile) ~
+      renv_init_action_conflict_lockfile(project, library, lockfile),
 
     # if a private library exists but no lockfile, ask whether we should use it
-    file.exists(library)
-      ~ renv_init_action_conflict_library(project, library, lockfile),
+    file.exists(library) ~
+      renv_init_action_conflict_library(project, library, lockfile),
 
     # otherwise, we just want to initialize the project
-    ~ "init"
-
+    ~"init"
   )
-
 }
 
 renv_init_action_conflict_lockfile <- function(project, library, lockfile) {
-
-  if (!interactive())
-    return("nothing")
+  if (!interactive()) return("nothing")
 
   title <- "This project already has a lockfile. What would you like to do?"
   choices <- c(
     restore = "Restore the project from the lockfile.",
-    init    = "Discard the lockfile and re-initialize the project.",
+    init = "Discard the lockfile and re-initialize the project.",
     nothing = "Activate the project without snapshotting or installing any packages.",
-    cancel  = "Abort project initialization."
+    cancel = "Abort project initialization."
   )
 
   selection <- tryCatch(
@@ -215,39 +219,33 @@ renv_init_action_conflict_lockfile <- function(project, library, lockfile) {
     interrupt = identity
   )
 
-  if (inherits(selection, "interrupt"))
-    return(NULL)
+  if (inherits(selection, "interrupt")) return(NULL)
 
   names(selection)
-
 }
 
 renv_init_action_conflict_library <- function(project, library, lockfile) {
-
-  if (!interactive())
-    return("nothing")
+  if (!interactive()) return("nothing")
 
   # if the project library exists, but it's empty,
   # treat this as a request to initialize the project
   # https://github.com/rstudio/renv/issues/1668
   db <- installed_packages(lib.loc = library, priority = NA_character_)
-  if (nrow(db) == 0L)
-    return("init")
+  if (nrow(db) == 0L) return("init")
 
   # if only renv is installed, but it matches the version of renv being used
   renvonly <-
     NROW(db) == 1L &&
-    db[["Package"]] == "renv" &&
-    db[["Version"]] == renv_package_version("renv")
+      db[["Package"]] == "renv" &&
+      db[["Version"]] == renv_package_version("renv")
 
-  if (renvonly)
-    return("init")
+  if (renvonly) return("init")
 
   title <- "This project already has a private library. What would you like to do?"
   choices <- c(
     nothing = "Activate the project and use the existing library.",
-    init    = "Re-initialize the project with a new library.",
-    cancel  = "Abort project initialization."
+    init = "Re-initialize the project with a new library.",
+    cancel = "Abort project initialization."
   )
 
   selection <- tryCatch(
@@ -255,44 +253,37 @@ renv_init_action_conflict_library <- function(project, library, lockfile) {
     interrupt = identity
   )
 
-  if (inherits(selection, "interrupt"))
-    return(NULL)
+  if (inherits(selection, "interrupt")) return(NULL)
 
   names(selection)
-
 }
 
 renv_init_validate_project <- function(project, force) {
-
   # allow all project directories when force = TRUE
-  if (force)
-    return(TRUE)
+  if (force) return(TRUE)
 
   # disallow attempts to initialize renv in the home directory
   home <- path.expand("~/")
   msg <- if (renv_file_same(project, home))
-    "refusing to initialize project in home directory"
-  else if (renv_path_within(home, project))
+    "refusing to initialize project in home directory" else if (
+    renv_path_within(home, project)
+  )
     sprintf("refusing to initialize project in directory '%s'", project)
 
   if (!is.null(msg)) {
     msg <- paste(msg, "-- use renv::init(force = TRUE) to override")
     stopf(msg)
   }
-
 }
 
 renv_init_settings <- function(project, settings) {
-
   defaults <- renv_settings_get(project)
   merged <- renv_settings_merge(defaults, settings)
   renv_settings_persist(project, merged)
   invisible(merged)
-
 }
 
 renv_init_bioconductor <- function(bioconductor, project) {
-
   # if we're re-initializing a project that appears to depend
   # on Bioconductor, then use the latest Bioconductor release
   if (is.null(bioconductor)) {
@@ -305,24 +296,21 @@ renv_init_bioconductor <- function(bioconductor, project) {
 
   # resolve bioconductor argument
   case(
-    is.character(bioconductor)     ~ bioconductor,
-    identical(bioconductor, TRUE)  ~ renv_bioconductor_version(project, refresh = TRUE),
+    is.character(bioconductor) ~ bioconductor,
+    identical(bioconductor, TRUE) ~
+      renv_bioconductor_version(project, refresh = TRUE),
     identical(bioconductor, FALSE) ~ NULL
   )
-
 }
 
 renv_init_repos <- function(repos = getOption("repos")) {
-
   # if PPM is disabled, just use default repositories
   repos <- convert(repos, "list")
-  if (!renv_ppm_enabled())
-    return(repos)
+  if (!renv_ppm_enabled()) return(repos)
 
   # check whether the user has opted into using PPM by default
   enabled <- config$ppm.default()
-  if (!enabled)
-    return(repos)
+  if (!enabled) return(repos)
 
   # check for default repositories
   #
@@ -337,22 +325,19 @@ renv_init_repos <- function(repos = getOption("repos")) {
 
   isdefault <-
     identical(repos, list(CRAN = "@CRAN@")) ||
-    identical(repos, rstudio)
+      identical(repos, rstudio)
 
   if (isdefault) {
     repos[["CRAN"]] <- config$ppm.url()
   }
 
   repos
-
 }
 
 renv_init_type <- function(project) {
-
   # check if the user has already requested a snapshot type
   type <- renv_settings_get(project, name = "snapshot.type", default = NULL)
-  if (!is.null(type))
-    return(type)
+  if (!is.null(type)) return(type)
 
   # if we don't have a DESCRIPTION file, use the default
   if (!file.exists(file.path(project, "DESCRIPTION")))
@@ -361,7 +346,6 @@ renv_init_type <- function(project) {
   # otherwise, ask the user if they want to explicitly enumerate their
   # R package dependencies in the DESCRIPTION file
   choice <- menu(
-
     title = c(
       "This project contains a DESCRIPTION file.",
       "Which files should renv use for dependency discovery in this project?"
@@ -371,13 +355,13 @@ renv_init_type <- function(project) {
       explicit = "Use only the DESCRIPTION file. (explicit mode)",
       implicit = "Use all files in this project. (implicit mode)"
     )
-
   )
 
-  if (identical(choice, "cancel"))
-    cancel()
+  if (identical(choice, "cancel")) cancel()
 
-  writef("- Using '%s' snapshot type. Please see `?renv::snapshot` for more details.\n", choice)
+  writef(
+    "- Using '%s' snapshot type. Please see `?renv::snapshot` for more details.\n",
+    choice
+  )
   choice
-
 }

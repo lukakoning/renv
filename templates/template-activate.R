@@ -1,14 +1,27 @@
+#### Customization of 'activate.R' to make it work on KPT-VDI ####
+
+lib_root <- file.path(
+  "C:/renv_libs/",
+  getwd() |> digest::digest(algo = "sha1")
+)
+dir.create(lib_root, showWarnings = FALSE)
+
+Sys.setenv(
+  RENV_PATHS_LIBRARY_ROOT = lib_root,
+  RENV_PATHS_LIBRARY_STAGING = file.path(lib_root, "staging"),
+  RENV_PATHS_LIBRARY = file.path(lib_root, "lib")
+)
+
+#### Default activate.R ####
 
 local({
-
   # the requested version of renv
   version <- ..version..
   attr(version, "sha") <- ..sha..
 
   # the project directory
   project <- Sys.getenv("RENV_PROJECT")
-  if (!nzchar(project))
-    project <- getwd()
+  if (!nzchar(project)) project <- getwd()
 
   # use start-up diagnostics if enabled
   diagnostics <- Sys.getenv("RENV_STARTUP_DIAGNOSTICS", unset = "FALSE")
@@ -16,30 +29,35 @@ local({
     start <- Sys.time()
     profile <- tempfile("renv-startup-", fileext = ".Rprof")
     utils::Rprof(profile)
-    on.exit({
-      utils::Rprof(NULL)
-      elapsed <- signif(difftime(Sys.time(), start, units = "auto"), digits = 2L)
-      writeLines(sprintf("- renv took %s to run the autoloader.", format(elapsed)))
-      writeLines(sprintf("- Profile: %s", profile))
-      print(utils::summaryRprof(profile))
-    }, add = TRUE)
+    on.exit(
+      {
+        utils::Rprof(NULL)
+        elapsed <- signif(
+          difftime(Sys.time(), start, units = "auto"),
+          digits = 2L
+        )
+        writeLines(
+          sprintf("- renv took %s to run the autoloader.", format(elapsed))
+        )
+        writeLines(sprintf("- Profile: %s", profile))
+        print(utils::summaryRprof(profile))
+      },
+      add = TRUE
+    )
   }
 
   # figure out whether the autoloader is enabled
   enabled <- local({
-
     # first, check config option
     override <- getOption("renv.config.autoloader.enabled")
-    if (!is.null(override))
-      return(override)
+    if (!is.null(override)) return(override)
 
     # if we're being run in a context where R_LIBS is already set,
     # don't load -- presumably we're being run as a sub-process and
     # the parent process has already set up library paths for us
     rcmd <- Sys.getenv("R_CMD", unset = NA)
     rlibs <- Sys.getenv("R_LIBS", unset = NA)
-    if (!is.na(rlibs) && !is.na(rcmd))
-      return(FALSE)
+    if (!is.na(rlibs) && !is.na(rcmd)) return(FALSE)
 
     # next, check environment variables
     # prefer using the configuration one in the future
@@ -51,18 +69,15 @@ local({
 
     for (envvar in envvars) {
       envval <- Sys.getenv(envvar, unset = NA)
-      if (!is.na(envval))
-        return(tolower(envval) %in% c("true", "t", "1"))
+      if (!is.na(envval)) return(tolower(envval) %in% c("true", "t", "1"))
     }
 
     # enable by default
     TRUE
-
   })
 
   # bail if we're not enabled
   if (!enabled) {
-
     # if we're not enabled, we might still need to manually load
     # the user profile here
     profile <- Sys.getenv("R_PROFILE_USER", unset = "~/.Rprofile")
@@ -73,7 +88,6 @@ local({
     }
 
     return(FALSE)
-
   }
 
   # avoid recursion
@@ -94,8 +108,7 @@ local({
   library(utils, lib.loc = .Library)
 
   # unload renv if it's already been loaded
-  if ("renv" %in% loadedNamespaces())
-    unloadNamespace("renv")
+  if ("renv" %in% loadedNamespaces()) unloadNamespace("renv")
 
   # load bootstrap tools ${BOOTSTRAP}
 
@@ -115,5 +128,4 @@ local({
   renv_bootstrap_exec(project, libpath, version)
 
   invisible()
-
 })
