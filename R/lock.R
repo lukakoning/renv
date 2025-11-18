@@ -20,11 +20,27 @@ renv_lock_acquire <- function(path) {
   # suppress warnings in this scope
   renv_scope_options(warn = -1L)
 
-  # loop until we acquire the lock
-  repeat tryCatch(
-    renv_lock_acquire_impl(path) && break,
-    error = function(cnd) Sys.sleep(0.2)
-  )
+  # loop until we acquire the lock; avoid busy-spin if lock exists
+  # NOTE: original implementation could spin rapidly when an existing
+  # non-orphaned lock directory was present (dir.create returns FALSE
+  # without error). We now sleep briefly between attempts.
+  repeat {
+    acquired <- tryCatch(renv_lock_acquire_impl(path), error = function(cnd) {
+      Sys.sleep(0.2)
+      FALSE
+    })
+    if (isTRUE(acquired))
+      break
+
+    # if not acquired (lock exists), sleep a little to reduce contention
+    Sys.sleep(0.1)
+
+    # re-check for orphaned lock and remove if aged beyond timeout
+    if (renv_lock_orphaned(path)) {
+      dlog("lock", "%s: removing stale lock during wait", path)
+      unlink(path, recursive = TRUE, force = TRUE)
+    }
+  }
 
   # mark this path as locked by us
   the$lock_registry[[path]] <- 1L
